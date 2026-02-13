@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum CampaignStatus {
+  PENDING
+  APPROVED
+  LIVE
+  REJECTED
+  ENDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model Location {
+  id               String     @id @default(cuid())
+  name             String
+  address          String
+  description      String
+  footTrafficPerDay Int
+  pricePer30Days   Int
+  createdAt        DateTime   @default(now())
+  screen           Screen?
+  campaigns        Campaign[]
+}
+
+model Screen {
+  id         String   @id @default(cuid())
+  locationId String   @unique
+  totalSlots Int      @default(18)
+  loopSeconds Int     @default(60)
+  adSeconds  Int      @default(10)
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+}
+
+model Campaign {
+  id           String         @id @default(cuid())
+  locationId   String
+  advertiserId String?
+  businessName String
+  phone        String
+  title        String
+  startDate    DateTime
+  endDate      DateTime
+  slotCount    Int            @default(1)
+  status       CampaignStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  location     Location       @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  advertiser   Advertiser?    @relation(fields: [advertiserId], references: [id], onDelete: SetNull)
+  mediaAsset   MediaAsset?
+  proofAsset   ProofAsset?
+  payment      Payment?
+  invoice      Invoice?
+  notifications NotificationLog[]
+}
+
+model MediaAsset {
+  id         String   @id @default(cuid())
+  campaignId String   @unique
+  type       String
+  path       String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model ProofAsset {
+  id         String   @id @default(cuid())
+  campaignId String   @unique
+  path       String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  campaignId        String        @unique
+  method            String
+  amountUsd         Float
+  status            PaymentStatus @default(PENDING)
+  checkoutReference String?
+  createdAt         DateTime      @default(now())
+  paidAt            DateTime?
+  campaign          Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  campaignId    String   @unique
+  invoiceNumber String   @unique
+  amountUsd     Float
+  issuedAt      DateTime @default(now())
+  campaign      Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model NotificationLog {
+  id         String    @id @default(cuid())
+  campaignId String?
+  channel    String
+  recipient  String
+  message    String
+  status     String
+  createdAt  DateTime  @default(now())
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model Advertiser {
+  id           String              @id @default(cuid())
+  name         String
+  email        String              @unique
+  phone        String
+  passwordHash String
+  createdAt    DateTime            @default(now())
+  sessions     AdvertiserSession[]
+  campaigns    Campaign[]
+}
+
+model AdvertiserSession {
+  id           String     @id @default(cuid())
+  advertiserId String
+  tokenHash    String     @unique
+  expiresAt    DateTime
+  createdAt    DateTime   @default(now())
+  advertiser   Advertiser @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+}
