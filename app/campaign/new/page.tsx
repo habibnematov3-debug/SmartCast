@@ -2,6 +2,8 @@
 import { notFound, redirect } from "next/navigation";
 import { CampaignCreateForm } from "@/components/CampaignCreateForm";
 import { getCurrentAdvertiser } from "@/lib/advertiser-auth";
+import { getDemoLocationById } from "@/lib/demoData";
+import { isDemoMode } from "@/lib/demo-mode";
 import { addDays } from "@/lib/dates";
 import { tr } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
@@ -22,6 +24,7 @@ function formatDateInput(date: Date) {
 export default async function NewCampaignPage({ searchParams }: PageProps) {
   const lang = getServerLang();
   const advertiser = await getCurrentAdvertiser();
+  const demoMode = isDemoMode || !prisma;
 
   if (!advertiser) {
     redirect("/auth/login");
@@ -33,14 +36,16 @@ export default async function NewCampaignPage({ searchParams }: PageProps) {
     notFound();
   }
 
-  const location = await prisma.location.findUnique({
-    where: {
-      id: locationId
-    },
-    include: {
-      screen: true
-    }
-  });
+  const location = demoMode
+    ? getDemoLocationById(locationId)
+    : await prisma!.location.findUnique({
+        where: {
+          id: locationId
+        },
+        include: {
+          screen: true
+        }
+      });
 
   if (!location || !location.screen) {
     notFound();

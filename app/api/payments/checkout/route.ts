@@ -2,6 +2,7 @@ import { CampaignStatus, PaymentStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { getCurrentAdvertiser } from "@/lib/advertiser-auth";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { daysInclusive } from "@/lib/dates";
 import { buildInvoiceNumber } from "@/lib/invoices";
 import { notifyCampaignEvent } from "@/lib/notifications";
@@ -20,6 +21,18 @@ function normalizeMethod(method: string) {
 }
 
 export async function POST(request: Request) {
+  if (isDemoMode) {
+    return Response.json({
+      ok: true,
+      demo: true,
+      invoiceNumber: `DEMO-${Date.now()}`
+    });
+  }
+
+  if (!prisma) {
+    return NextResponse.json({ error: "Database unavailable." }, { status: 500 });
+  }
+
   try {
     const advertiser = await getCurrentAdvertiser();
     const isAdmin = isAdminAuthenticated();

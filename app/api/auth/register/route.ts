@@ -4,6 +4,7 @@ import {
   hashAdvertiserPassword,
   setAdvertiserSession
 } from "@/lib/advertiser-auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 
 function asText(value: FormDataEntryValue | null) {
@@ -15,6 +16,15 @@ function isEmail(input: string) {
 }
 
 export async function POST(request: Request) {
+  if (isDemoMode) {
+    await setAdvertiserSession("demo_advertiser");
+    return NextResponse.redirect(new URL("/", request.url), 303);
+  }
+
+  if (!prisma) {
+    return NextResponse.redirect(new URL("/auth/register?error=server", request.url), 303);
+  }
+
   try {
     const formData = await request.formData();
     const name = asText(formData.get("name"));

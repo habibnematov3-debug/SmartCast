@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isDemoMode } from "@/lib/demo-mode";
 import { syncCampaignStatuses } from "@/lib/campaign-status";
 
 function isAuthorized(request: Request) {
@@ -15,6 +16,16 @@ function isAuthorized(request: Request) {
 }
 
 export async function GET(request: Request) {
+  if (isDemoMode) {
+    return Response.json({
+      ok: true,
+      demo: true,
+      scanned: 0,
+      updated: 0,
+      syncedAt: new Date().toISOString()
+    });
+  }
+
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

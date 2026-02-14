@@ -5,6 +5,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { getCurrentAdvertiser } from "@/lib/advertiser-auth";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { syncCampaignStatuses } from "@/lib/campaign-status";
+import { getDemoCampaignById } from "@/lib/demoData";
+import { isDemoMode } from "@/lib/demo-mode";
 import { daysInclusive, formatDate } from "@/lib/dates";
 import { tr } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
@@ -22,25 +24,30 @@ export default async function CampaignDetailsPage({ params }: PageProps) {
   const lang = getServerLang();
   const isAdmin = isAdminAuthenticated();
   const advertiser = await getCurrentAdvertiser();
+  const demoMode = isDemoMode || !prisma;
 
-  await syncCampaignStatuses();
+  if (!demoMode) {
+    await syncCampaignStatuses();
+  }
 
-  const campaign = await prisma.campaign.findUnique({
-    where: {
-      id: params.id
-    },
-    include: {
-      location: {
+  const campaign = demoMode
+    ? getDemoCampaignById(params.id)
+    : await prisma!.campaign.findUnique({
+        where: {
+          id: params.id
+        },
         include: {
-          screen: true
+          location: {
+            include: {
+              screen: true
+            }
+          },
+          mediaAsset: true,
+          proofAsset: true,
+          payment: true,
+          invoice: true
         }
-      },
-      mediaAsset: true,
-      proofAsset: true,
-      payment: true,
-      invoice: true
-    }
-  });
+      });
 
   if (!campaign || !campaign.location.screen) {
     notFound();

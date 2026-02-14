@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAvailabilityForRange } from "@/lib/availability";
 import { getCurrentAdvertiser } from "@/lib/advertiser-auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { isValidDateRange, parseDateOnly } from "@/lib/dates";
 import { notifyCampaignEvent } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +12,18 @@ function asString(value: FormDataEntryValue | null) {
 }
 
 export async function POST(request: Request) {
+  if (isDemoMode) {
+    return Response.json({
+      ok: true,
+      demo: true,
+      id: `demo_${Date.now()}`
+    });
+  }
+
+  if (!prisma) {
+    return NextResponse.json({ error: "Database unavailable." }, { status: 500 });
+  }
+
   try {
     const advertiser = await getCurrentAdvertiser();
     if (!advertiser) {

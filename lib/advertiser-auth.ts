@@ -1,10 +1,18 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
+import { isDemoMode } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 
 export const ADVERTISER_COOKIE_NAME = "adslots_user";
+export const DEMO_ADVERTISER_COOKIE_NAME = "adslots_demo_user";
 
 const SESSION_AGE_SECONDS = 60 * 60 * 24 * 30;
+const DEMO_ADVERTISER = {
+  id: "demo_advertiser",
+  name: "Demo Advertiser",
+  email: "demo@smartcast.local",
+  phone: "+998 90 000 00 00"
+};
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(`adslots-user:${token}`).digest("hex");
@@ -32,6 +40,23 @@ export function verifyAdvertiserPassword(password: string, passwordHash: string)
 }
 
 export async function setAdvertiserSession(advertiserId: string) {
+  if (isDemoMode) {
+    cookies().set({
+      name: DEMO_ADVERTISER_COOKIE_NAME,
+      value: advertiserId || DEMO_ADVERTISER.id,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: SESSION_AGE_SECONDS
+    });
+    return;
+  }
+
+  if (!prisma) {
+    return;
+  }
+
   const rawToken = crypto.randomBytes(32).toString("hex");
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + SESSION_AGE_SECONDS * 1000);
@@ -56,6 +81,26 @@ export async function setAdvertiserSession(advertiserId: string) {
 }
 
 export async function clearAdvertiserSession() {
+  if (isDemoMode) {
+    cookies().set({
+      name: DEMO_ADVERTISER_COOKIE_NAME,
+      value: "",
+      path: "/",
+      maxAge: 0
+    });
+    cookies().set({
+      name: ADVERTISER_COOKIE_NAME,
+      value: "",
+      path: "/",
+      maxAge: 0
+    });
+    return;
+  }
+
+  if (!prisma) {
+    return;
+  }
+
   const rawToken = cookies().get(ADVERTISER_COOKIE_NAME)?.value;
 
   if (rawToken) {
@@ -75,6 +120,15 @@ export async function clearAdvertiserSession() {
 }
 
 export async function getCurrentAdvertiser() {
+  if (isDemoMode) {
+    const demoSession = cookies().get(DEMO_ADVERTISER_COOKIE_NAME)?.value;
+    return demoSession ? DEMO_ADVERTISER : null;
+  }
+
+  if (!prisma) {
+    return null;
+  }
+
   const rawToken = cookies().get(ADVERTISER_COOKIE_NAME)?.value;
   if (!rawToken) {
     return null;
@@ -113,6 +167,10 @@ export async function getCurrentAdvertiser() {
 }
 
 export async function cleanupExpiredAdvertiserSessions() {
+  if (isDemoMode || !prisma) {
+    return;
+  }
+
   await prisma.advertiserSession.deleteMany({
     where: {
       expiresAt: {

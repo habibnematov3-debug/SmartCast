@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
+import { isDemoMode } from "@/lib/demo-mode";
 import { getAvailabilityForRange } from "@/lib/availability";
 import { isValidDateRange, parseDateOnly } from "@/lib/dates";
 
 export async function GET(request: Request) {
+  if (isDemoMode) {
+    return Response.json({
+      ok: true,
+      demo: true,
+      totalSlots: 18,
+      availableSlots: 14,
+      overlapCount: 4
+    });
+  }
+
   const { searchParams } = new URL(request.url);
   const locationId = searchParams.get("locationId")?.trim();
   const startInput = searchParams.get("startDate")?.trim();

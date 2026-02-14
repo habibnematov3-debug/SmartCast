@@ -1,3 +1,4 @@
+import { isDemoMode } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 
 type SendNotificationInput = {
@@ -49,6 +50,10 @@ async function sendTelegramMessage(message: string) {
 }
 
 export async function sendNotification(input: SendNotificationInput) {
+  if (isDemoMode || !prisma) {
+    return;
+  }
+
   if (input.channel === "TELEGRAM") {
     const result = await sendTelegramMessage(input.message);
 

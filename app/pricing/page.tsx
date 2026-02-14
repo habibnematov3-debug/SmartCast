@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentAdvertiser } from "@/lib/advertiser-auth";
+import { DEMO_LOCATIONS } from "@/lib/demoData";
+import { isDemoMode } from "@/lib/demo-mode";
 import { tr } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/pricing";
@@ -15,16 +17,19 @@ export const metadata: Metadata = {
 export default async function PricingPage() {
   const lang = getServerLang();
   const advertiser = await getCurrentAdvertiser();
+  const demoMode = isDemoMode || !prisma;
 
   if (advertiser) {
     redirect("/");
   }
 
-  const locations = await prisma.location.findMany({
-    select: {
-      pricePer30Days: true
-    }
-  });
+  const locations = demoMode
+    ? DEMO_LOCATIONS.map((location) => ({ pricePer30Days: location.pricePer30Days }))
+    : await prisma!.location.findMany({
+        select: {
+          pricePer30Days: true
+        }
+      });
 
   const minPrice = locations.length ? Math.min(...locations.map((location) => location.pricePer30Days)) : 0;
   const maxPrice = locations.length ? Math.max(...locations.map((location) => location.pricePer30Days)) : 0;

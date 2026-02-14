@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 import {
   DEFAULT_TOTAL_SLOTS,
@@ -40,6 +41,15 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   const formData = await request.formData();
+
+  if (isDemoMode) {
+    return NextResponse.redirect(pickRedirect(request, formData), 303);
+  }
+
+  if (!prisma) {
+    return NextResponse.redirect(pickRedirect(request, formData), 303);
+  }
+
   const totalSlots = toNumber(formData.get("totalSlots"));
   const loopSeconds = toNumber(formData.get("loopSeconds"));
   const adSeconds = toNumber(formData.get("adSeconds"));

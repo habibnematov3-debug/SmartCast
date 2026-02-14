@@ -4,6 +4,7 @@ import {
   setAdvertiserSession,
   verifyAdvertiserPassword
 } from "@/lib/advertiser-auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 
 function asText(value: FormDataEntryValue | null) {
@@ -11,6 +12,15 @@ function asText(value: FormDataEntryValue | null) {
 }
 
 export async function POST(request: Request) {
+  if (isDemoMode) {
+    await setAdvertiserSession("demo_advertiser");
+    return NextResponse.redirect(new URL("/", request.url), 303);
+  }
+
+  if (!prisma) {
+    return NextResponse.redirect(new URL("/auth/login?error=invalid", request.url), 303);
+  }
+
   try {
     const formData = await request.formData();
     const email = asText(formData.get("email")).toLowerCase();

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 import { saveFileToUploads } from "@/lib/uploads";
 
@@ -29,6 +30,15 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   const formData = await request.formData();
+
+  if (isDemoMode) {
+    return NextResponse.redirect(pickRedirect(request, formData), 303);
+  }
+
+  if (!prisma) {
+    return NextResponse.redirect(pickRedirect(request, formData), 303);
+  }
+
   const proof = formData.get("proof");
 
   if (!(proof instanceof File) || proof.size === 0 || !proof.type.startsWith("image/")) {

@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentAdvertiser } from "@/lib/advertiser-auth";
+import { DEMO_LOCATIONS_WITH_SCREEN } from "@/lib/demoData";
+import { isDemoMode } from "@/lib/demo-mode";
 import { tr } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/pricing";
@@ -24,20 +26,23 @@ const locationTypes = [
 export default async function PublicLocationsPage() {
   const lang = getServerLang();
   const advertiser = await getCurrentAdvertiser();
+  const demoMode = isDemoMode || !prisma;
 
   if (advertiser) {
     redirect("/");
   }
 
-  const locations = await prisma.location.findMany({
-    include: {
-      screen: true
-    },
-    orderBy: {
-      createdAt: "asc"
-    },
-    take: 12
-  });
+  const locations = demoMode
+    ? DEMO_LOCATIONS_WITH_SCREEN.slice(0, 12)
+    : await prisma!.location.findMany({
+        include: {
+          screen: true
+        },
+        orderBy: {
+          createdAt: "asc"
+        },
+        take: 12
+      });
 
   return (
     <div className="space-y-8">

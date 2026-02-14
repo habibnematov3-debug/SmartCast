@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_TOTAL_SLOTS } from "@/lib/screen-config";
 
@@ -17,6 +18,14 @@ function toText(value: FormDataEntryValue | null) {
 export async function POST(request: Request) {
   if (!isAdminAuthenticated()) {
     return NextResponse.redirect(new URL("/admin/login", request.url), 303);
+  }
+
+  if (isDemoMode) {
+    return NextResponse.redirect(new URL("/admin", request.url), 303);
+  }
+
+  if (!prisma) {
+    return NextResponse.redirect(new URL("/admin?error=db-unavailable", request.url), 303);
   }
 
   const formData = await request.formData();

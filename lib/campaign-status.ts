@@ -1,4 +1,5 @@
 import { CampaignStatus } from "@prisma/client";
+import { isDemoMode } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 
 function resolveAutoStatus(current: CampaignStatus, startDate: Date, endDate: Date, now: Date) {
@@ -18,6 +19,13 @@ function resolveAutoStatus(current: CampaignStatus, startDate: Date, endDate: Da
 }
 
 export async function syncCampaignStatuses(now = new Date()) {
+  if (isDemoMode || !prisma) {
+    return {
+      scanned: 0,
+      updated: 0
+    };
+  }
+
   const campaigns = await prisma.campaign.findMany({
     where: {
       status: {

@@ -1,7 +1,18 @@
 import { CampaignStatus } from "@prisma/client";
+import { isDemoMode } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 
 export async function getAvailabilityForRange(locationId: string, startDate: Date, endDate: Date) {
+  if (isDemoMode || !prisma) {
+    const totalSlots = 18;
+    const overlapCount = 4;
+    return {
+      totalSlots,
+      overlapCount,
+      availableSlots: Math.max(totalSlots - overlapCount, 0)
+    };
+  }
+
   const screen = await prisma.screen.findUnique({
     where: { locationId },
     select: {

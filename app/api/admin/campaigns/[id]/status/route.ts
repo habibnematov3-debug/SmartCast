@@ -1,6 +1,7 @@
 import { CampaignStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { notifyCampaignEvent } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
@@ -30,6 +31,15 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   const formData = await request.formData();
+
+  if (isDemoMode) {
+    return NextResponse.redirect(pickRedirect(request, formData), 303);
+  }
+
+  if (!prisma) {
+    return NextResponse.redirect(pickRedirect(request, formData), 303);
+  }
+
   const statusInput = formData.get("status");
 
   if (typeof statusInput !== "string" || !Object.values(CampaignStatus).includes(statusInput as CampaignStatus)) {

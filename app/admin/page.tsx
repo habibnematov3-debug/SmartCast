@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { StatusBadge } from "@/components/StatusBadge";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { syncCampaignStatuses } from "@/lib/campaign-status";
+import { DEMO_CAMPAIGNS, DEMO_LOCATIONS_WITH_SCREEN, DEMO_NOTIFICATIONS } from "@/lib/demoData";
+import { isDemoMode } from "@/lib/demo-mode";
 import { addDays, daysInclusive, formatDate } from "@/lib/dates";
 import { tr } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
@@ -25,45 +27,50 @@ function overlaps(startA: Date, endA: Date, startB: Date, endB: Date) {
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
   const lang = getServerLang();
+  const demoMode = isDemoMode || !prisma;
 
   if (!isAdminAuthenticated()) {
     redirect("/admin/login");
   }
 
-  await syncCampaignStatuses();
+  if (!demoMode) {
+    await syncCampaignStatuses();
+  }
 
-  const [locations, campaigns, notifications] = await Promise.all([
-    prisma.location.findMany({
-      include: {
-        screen: true
-      },
-      orderBy: {
-        createdAt: "asc"
-      }
-    }),
-    prisma.campaign.findMany({
-      include: {
-        location: {
+  const [locations, campaigns, notifications] = demoMode
+    ? [DEMO_LOCATIONS_WITH_SCREEN, DEMO_CAMPAIGNS, DEMO_NOTIFICATIONS]
+    : await Promise.all([
+        prisma!.location.findMany({
           include: {
             screen: true
+          },
+          orderBy: {
+            createdAt: "asc"
           }
-        },
-        mediaAsset: true,
-        proofAsset: true,
-        payment: true,
-        invoice: true
-      },
-      orderBy: {
-        createdAt: "desc"
-      }
-    }),
-    prisma.notificationLog.findMany({
-      orderBy: {
-        createdAt: "desc"
-      },
-      take: 20
-    })
-  ]);
+        }),
+        prisma!.campaign.findMany({
+          include: {
+            location: {
+              include: {
+                screen: true
+              }
+            },
+            mediaAsset: true,
+            proofAsset: true,
+            payment: true,
+            invoice: true
+          },
+          orderBy: {
+            createdAt: "desc"
+          }
+        }),
+        prisma!.notificationLog.findMany({
+          orderBy: {
+            createdAt: "desc"
+          },
+          take: 20
+        })
+      ]);
 
   const paidStatuses = new Set<CampaignStatus>([
     CampaignStatus.APPROVED,

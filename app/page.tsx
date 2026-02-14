@@ -5,6 +5,8 @@ import { HomeMarketplace, type MarketplaceLocation } from "@/components/HomeMark
 import { SocialLinks } from "@/components/SocialLinks";
 import { getCurrentAdvertiser } from "@/lib/advertiser-auth";
 import { syncCampaignStatuses } from "@/lib/campaign-status";
+import { DEMO_LOCATIONS_WITH_SCREEN } from "@/lib/demoData";
+import { isDemoMode } from "@/lib/demo-mode";
 import { addDays, formatDate } from "@/lib/dates";
 import { tr } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
@@ -38,17 +40,20 @@ export default async function HomePage() {
   const lang = getServerLang();
   const advertiser = await getCurrentAdvertiser();
   const introVideo = resolveIntroVideo(publicBrand.introVideoUrl);
+  const demoMode = isDemoMode || !prisma;
 
   if (!advertiser) {
-    const locations = await prisma.location.findMany({
-      include: {
-        screen: true
-      },
-      orderBy: {
-        footTrafficPerDay: "desc"
-      },
-      take: 6
-    });
+    const locations = demoMode
+      ? DEMO_LOCATIONS_WITH_SCREEN.slice(0, 6).sort((a, b) => b.footTrafficPerDay - a.footTrafficPerDay)
+      : await prisma!.location.findMany({
+          include: {
+            screen: true
+          },
+          orderBy: {
+            footTrafficPerDay: "desc"
+          },
+          take: 6
+        });
 
     const basePrice = locations.length ? Math.min(...locations.map((location) => location.pricePer30Days)) : null;
 
@@ -369,9 +374,41 @@ export default async function HomePage() {
     );
   }
 
+  if (demoMode) {
+    const locations = DEMO_LOCATIONS_WITH_SCREEN;
+    const today = new Date();
+    const windowEnd = addDays(today, 29);
+
+    const marketplaceLocations: MarketplaceLocation[] = locations.map((location, index) => {
+      const categorySource = locationCategoryRotation[index % locationCategoryRotation.length];
+      const categories = [...categorySource] as Category[];
+      const totalSlots = location.screen?.totalSlots ?? DEFAULT_TOTAL_SLOTS;
+
+      return {
+        id: location.id,
+        name: location.name,
+        address: location.address,
+        description: location.description,
+        footTrafficPerDay: location.footTrafficPerDay,
+        pricePer30Days: location.pricePer30Days,
+        totalSlots,
+        availableSlots: Math.max(totalSlots - 2, 0),
+        categories
+      };
+    });
+
+    return (
+      <HomeMarketplace
+        lang={lang}
+        windowLabel={`${formatDate(today)} - ${formatDate(windowEnd)}`}
+        locations={marketplaceLocations}
+      />
+    );
+  }
+
   await syncCampaignStatuses();
 
-  const locations = await prisma.location.findMany({
+  const locations = await prisma!.location.findMany({
     include: {
       screen: true
     },
@@ -385,7 +422,7 @@ export default async function HomePage() {
 
   const availabilityByLocation = await Promise.all(
     locations.map(async (location) => {
-      const soldSlots = await prisma.campaign.count({
+      const soldSlots = await prisma!.campaign.count({
         where: {
           locationId: location.id,
           status: {

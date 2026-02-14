@@ -5,6 +5,8 @@ import { AvailabilityChecker } from "@/components/AvailabilityChecker";
 import { getCurrentAdvertiser } from "@/lib/advertiser-auth";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { syncCampaignStatuses } from "@/lib/campaign-status";
+import { DEMO_CAMPAIGNS, getDemoLocationById } from "@/lib/demoData";
+import { isDemoMode } from "@/lib/demo-mode";
 import { getAvailabilityForRange } from "@/lib/availability";
 import { addDays } from "@/lib/dates";
 import { tr } from "@/lib/i18n";
@@ -41,21 +43,26 @@ export default async function LocationPage({ params }: PageProps) {
   const lang = getServerLang();
   const isAdmin = isAdminAuthenticated();
   const advertiser = await getCurrentAdvertiser();
+  const demoMode = isDemoMode || !prisma;
 
   if (!advertiser && !isAdmin) {
     redirect("/auth/login");
   }
 
-  await syncCampaignStatuses();
+  if (!demoMode) {
+    await syncCampaignStatuses();
+  }
 
-  const location = await prisma.location.findUnique({
-    where: {
-      id: params.id
-    },
-    include: {
-      screen: true
-    }
-  });
+  const location = demoMode
+    ? getDemoLocationById(params.id)
+    : await prisma!.location.findUnique({
+        where: {
+          id: params.id
+        },
+        include: {
+          screen: true
+        }
+      });
 
   if (!location || !location.screen) {
     notFound();
@@ -67,24 +74,35 @@ export default async function LocationPage({ params }: PageProps) {
   const endDate = addDays(startDate, 29);
   const availability = await getAvailabilityForRange(location.id, startDate, endDate);
 
-  const calendarCampaigns = await prisma.campaign.findMany({
-    where: {
-      locationId: location.id,
-      status: {
-        in: [CampaignStatus.APPROVED, CampaignStatus.LIVE]
-      },
-      startDate: {
-        lte: endDate
-      },
-      endDate: {
-        gte: startDate
-      }
-    },
-    select: {
-      startDate: true,
-      endDate: true
-    }
-  });
+  const calendarCampaigns = demoMode
+    ? DEMO_CAMPAIGNS.filter(
+        (campaign) =>
+          campaign.locationId === location.id &&
+          (campaign.status === CampaignStatus.APPROVED || campaign.status === CampaignStatus.LIVE) &&
+          campaign.startDate <= endDate &&
+          campaign.endDate >= startDate
+      ).map((campaign) => ({
+        startDate: campaign.startDate,
+        endDate: campaign.endDate
+      }))
+    : await prisma!.campaign.findMany({
+        where: {
+          locationId: location.id,
+          status: {
+            in: [CampaignStatus.APPROVED, CampaignStatus.LIVE]
+          },
+          startDate: {
+            lte: endDate
+          },
+          endDate: {
+            gte: startDate
+          }
+        },
+        select: {
+          startDate: true,
+          endDate: true
+        }
+      });
 
   const calendarDays = Array.from({ length: 30 }, (_, index) => {
     const date = addDays(startDate, index);
